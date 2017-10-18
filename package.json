@@ -1,0 +1,43 @@
+{
+  "name": "react-context-sensitive",
+  "version": "1.0.0",
+  "description": "Components whose behaviour can vary depending on the proximity (or otherwise) of elements matching specified CSS selectors",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "babel src --out-dir dist",
+    "prepublish": "npm run build && npm run build-demo",
+    "build-demo": "webpack --config demo/webpack.conf.js -p --progress",
+    "demo": "webpack-dev-server --config demo/webpack.conf.js -d --progress --watch --hot",
+    "test": "karma start --single-run",
+    "live-test": "karma start --no-single-run"
+  },
+  "author": "Julian Hall <jh314159@googlemail.com>",
+  "license": "MIT",
+  "devDependencies": {
+    "babel-cli": "^6.26.0",
+    "babel-loader": "^7.1.2",
+    "babel-preset-env": "^1.6.0",
+    "babel-preset-react": "^6.24.1",
+    "expect": "^21.2.1",
+    "jasmine-core": "^2.8.0",
+    "karma": "^1.7.1",
+    "karma-chrome-launcher": "^2.2.0",
+    "karma-cli": "^1.0.1",
+    "karma-coverage": "^1.1.1",
+    "karma-html-live-reporter": "^0.2.0",
+    "karma-html-reporter": "^0.2.7",
+    "karma-jasmine-html-reporter": "^0.2.2",
+    "karma-jasmine-matchers": "^3.7.0",
+    "karma-node-notifier": "^1.0.3",
+    "karma-sourcemap-loader": "^0.3.7",
+    "karma-spec-reporter": "0.0.31",
+    "karma-webpack": "^2.0.5",
+    "static-server": "^2.0.5",
+    "webpack": "^3.7.1",
+    "webpack-dev-server": "^2.9.1"
+  },
+  "dependencies": {
+    "react": "^16.0.0",
+    "react-dom": "^16.0.0"
+  }
+}
