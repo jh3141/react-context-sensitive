@@ -9,6 +9,7 @@ export default class ContextSensitiveStub extends React.Component
 
         this.latestSenseResults = this.emptySenseResults ();
         this.state = this.calculateState ();
+        this.sensorsExecuted = false;
     }
     calculateState ()
     {
@@ -18,8 +19,10 @@ export default class ContextSensitiveStub extends React.Component
     }
     expandResults (state)
     {
-        for (let result of state.senseResults)
+        for (let result of state.senseResults) {
             state[result.id] = result.descriptor;
+        }
+
         return state;
     }
     componentDidMount ()
@@ -63,7 +66,6 @@ export default class ContextSensitiveStub extends React.Component
             return;
         }
 
-        console.log ("Adding mutation observer");
         this.observer = new MutationObserver (mutationList => this.domTreeMutated(mutationList));
         this.observer.observe (node, { childList: true, subtree: true });
     }
@@ -73,25 +75,39 @@ export default class ContextSensitiveStub extends React.Component
         this.latestSenseResults = this.executeAllSenseOperations ();
         this.updateState ();
     }
+    sensorStateChanged ()
+    {
+        this.setState (this.calculateState ());
+    }
+    getLastState ()
+    {
+        return this.state;
+    }
     updateState ()
     {
+        let oldState = this.getLastState ();
+
+        if (! this.sensorsExecuted) {
+            this.sensorStateChanged ();
+            this.sensorsExecuted = true;
+            return;
+        }
+
         for (let result of this.latestSenseResults)
         {
-            if (result.descriptor && this.state[result.id])
+            if (result.descriptor && oldState[result.id])
             {
-                if (result.element !== this.state[result.id].element ||
-                    result.distance.inLevel != this.state[result.id].distance.inLevel ||
-                    result.distance.up != this.state[result.id].distance.up)
+                if (result.element !== oldState[result.id].element ||
+                    result.distance.inLevel != oldState[result.id].distance.inLevel ||
+                    result.distance.up != oldState[result.id].distance.up)
                 {
-                    console.log ("Updating state");
-                    this.setState (this.calculateState());
+                    this.sensorStateChanged ();
                     return;
                 }
             }
-            else if (result.descriptor || this.state[result.id])
+            else if (result.descriptor || oldState[result.id])
             {
-                console.log ("Updating state");
-                this.setState (this.calculateState());
+                this.sensorStateChanged ();
                 return;
             }
         }
@@ -100,12 +116,12 @@ export default class ContextSensitiveStub extends React.Component
     {
         return this.props.sensors.map(sensor => ({
             id: sensor.id,
-            descriptor: null
+            descriptor: null,
+            sensorNotExecuted: true
         }));
     }
     render ()
     {
-        console.log ("Rendering with " + this.latestSenseResults.filter(z => z.descriptor).length + " successful searches");
         return this.renderWithSenseResults (this.latestSenseResults);
     }
 
@@ -124,16 +140,14 @@ export default class ContextSensitiveStub extends React.Component
 
     executeSensor (sensor)
     {
-        console.log ("Executing sensor: " + sensor.id);
-
         let node = ReactDOM.findDOMNode(this);
         if (!node) {
             console.log ("Component is not mounted!");
-            return;
+            return null;
         }
         if (!node.parentNode) {
             console.log ("Component element is not parented!");
-            return;
+            return null;
         }
         let container = sensor.inContainer ?
                             (sensor.inContainer instanceof Element ? sensor.inContainer :
@@ -144,17 +158,13 @@ export default class ContextSensitiveStub extends React.Component
             container = { contains: n => true };
 
         let distance = { inLevel: 0, up: 0 };
-        console.log ("  Container = ", container);
-        console.log ("  Initial node = ", node, "(container contains node: " + container.contains(node) + ")");
         while ((node = this.moveInDirection (sensor.direction, node, distance)) && container.contains(node))
         {
             if (sensor.maxUp && distance.up > sensor.maxUp) return null;
 
-            console.log ("  Current node = ", node);
             let matches = node.matches(sensor.selector)
                                 ? [ node ]
                                 : node.querySelectorAll (sensor.selector);
-            console.log ("  Match count = " , matches.length);
             if (matches.length > 0)
                 return {
                     element: this.elementAtClosestEnd(matches, sensor.direction),

@@ -1,2 +1,3 @@
 export ContextSensitiveStub from './ContextSensitiveStub.jsx';
-export { resultForId } from './SenseResultUtils';
+export ContextSensitiveFactory from './ContextSensitiveFactory.jsx';
+export { resultForId, evaluateCondition } from './SenseResultUtils';
