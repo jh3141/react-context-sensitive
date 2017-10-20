@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
-import ContextSensitiveStub from "./ContextSensitiveStub.jsx";
+import ContextSensitiveStub from "./ContextSensitiveStub";
 import { resultForId, evaluateCondition } from "./SenseResultUtils";
 
 export default class ContextSensitiveRenderer extends ContextSensitiveStub

@@ -17,6 +17,7 @@ module.exports = function (config) {
     reporters: [ 'progress', 'coverage', 'kjhtml', 'karma-node-notifier', 'live-html' ], //report results in this format
     webpack: { //kind of a copy of your webpack config
       devtool: 'inline-source-map', //just do inline source maps instead of the default
+      resolve: { extensions: ['.js', '.jsx' ] },
       module: {
         loaders: [
           { test: /\.jsx?$/, loader: 'babel-loader' }
