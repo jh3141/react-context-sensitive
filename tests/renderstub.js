@@ -7,13 +7,14 @@ import { resultForId } from '../src/SenseResultUtils.js';
 var globalSenseResults = null;
 var defaultSensors = [
     { id: "a", selector: ".Foo", direction: "start", maxInLevel: 1, maxUp: 2 },
-    { id: "b", selector: ".Foo", direction: "end", maxInLevel: 3, maxUp: 1},
-    //{ id: "c", selector: ".Bar:nth-child(2)", escapeNested: 1, direction: "start" },
-    //{ id: "d", selector: ".Bar:nth-child(2)", escapeNested: 1, direction: "end" }
+    { id: "b", selector: ".Foo", direction: "end", maxInLevel: 3, maxUp: 1}
+];
+var startingPositionSensors = [
+    { id: "a", selector: ".Foo", direction: "start", maxInLevel: 1, maxUp: 0, startInAncestor: ".StartHere" }
 ];
 
 class ContextSensitiveStubSpy extends ContextSensitiveStub {
-    renderWithSenseResults (senseResults) { globalSenseResults = senseResults; return <div/>; }
+    renderWithSenseResults (senseResults) { globalSenseResults = senseResults; return <div ref={this.setElement} />; }
 }
 class ChangingMiddle extends React.Component
 {
@@ -168,4 +169,13 @@ describe ("<ContextSensitiveStub/>", () => {
             2000,
             done);
     });
+
+    it ("fails if startInAncestor is specified but no ancestor matches", () => {
+        ReactTestUtils.renderIntoDocument (<div>
+            <div className="Foo" />
+            <ContextSensitiveStubSpy sensors={startingPositionSensors} />
+        </div>);
+        expect(resultForId(globalSenseResults, "a")).toBeNull();
+    });
+
 });

@@ -9,7 +9,6 @@ export default class ContextSensitiveRenderer extends ContextSensitiveStub
     {
         super(props);
         this.runRenderingScripts = this.runRenderingScripts.bind(this);
-        this.setCanvasRef = this.setCanvasRef.bind(this);
     }
 
     // we don't actually update the state when we detect a change in sensor results;
@@ -18,7 +17,27 @@ export default class ContextSensitiveRenderer extends ContextSensitiveStub
     sensorStateChanged ()
     {
         this.sensorData = this.calculateState ();
-        window.requestAnimationFrame(this.runRenderingScripts);
+        if (this.props.renderedImageCache) {
+            let selection = this.selectRenderScripts ();
+            let key = this.makeCacheKey (selection);
+            let cached = this.props.renderedImageCache.get(key);
+            if (cached) {
+                this.setState ({
+                    cachedImageKey: key,
+                    cachedImageURL: cached.url
+                });
+                return;
+            }
+            else if (this.state.cachedImageURL) // stop using current cache
+            {
+                this.setState ({
+                    cachedImageKey: null,
+                    cachedImageURL: null
+                });
+            }
+        }
+        if (this.canvas)
+            window.requestAnimationFrame(this.runRenderingScripts);
     }
     // and the updateState method needs to be able to find the data to check whether
     // anything changed...
@@ -27,8 +46,10 @@ export default class ContextSensitiveRenderer extends ContextSensitiveStub
         return this.sensorData;
     }
 
-    setCanvasRef (canvas)
+    setElement (canvas)
     {
+        super.setElement(canvas);
+        // keep our own copy so we don't need to depend on what the superclass does with the element!
         this.canvas = canvas;
         // if the canvas has changed, we need to rerender.
         window.requestAnimationFrame(this.runRenderingScripts);
@@ -36,23 +57,62 @@ export default class ContextSensitiveRenderer extends ContextSensitiveStub
 
     renderWithSenseResults (senseResults)
     {
-        window.requestAnimationFrame(this.runRenderingScripts);
-        return <canvas ref={this.storeCanvasRef} />
+        if (this.state.cachedImageURL)
+            return <img src={this.state.cachedImageURL} className={this.state.cachedImageKey.replace(':',' ')} />;
+
+        return <canvas ref={this.setElement} />;
+    }
+
+    selectRenderScripts ()
+    {
+        let senseResults = this.latestSenseResults;
+        let selectedScripts = [];
+        for (let script of this.props.scripts)
+        {
+            if (script.when && !evaluateCondition (script.when, senseResults)) continue;
+            if (script.renderer) {
+                selectedScripts.push (script);
+            }
+            if (script.isTerminal) return;
+        }
+        return selectedScripts;
     }
 
     runRenderingScripts ()
     {
-        let senseResults = this.latestSenseResults;
-        let context = this.canvas.getContext(this.props.contextType || "2d");
-
-        for (let script of this.props.scripts)
+        let selection = this.selectRenderScripts ();
+        let cachedImageKey = this.makeCacheKey (selection);
+        let cachedBlob = this.props.renderedImageCache && this.props.renderedImageCache.get(cachedImageKey);
+        if (cachedBlob)
         {
-            if (!evaluateCondition (script.when, senseResults)) continue;
-            if (script.renderer) {
-                console.log ("Run renderer: " + script.name);
-                script.renderer (context, this.canvas, this);
-            }
-            if (script.isTerminal) return;
+            this.setState ({
+                cachedImageKey: cachedImageKey,
+                cachedImageURL: cachedBlob.url
+            });
+            return; // will trigger a rerender to use the cached version
         }
+
+        let context = this.canvas.getContext(this.props.contextType || "2d");
+        selection.forEach (script => script.renderer (context, this.canvas, this));
+
+        if (this.props.renderedImageCache) {
+            this.canvas.toBlob (blob => {
+                let url = URL.createObjectURL(blob);
+
+                this.props.renderedImageCache.set (cachedImageKey, {
+                    blob: blob,
+                    url: url
+                });
+                this.setState ({
+                    cachedImageKey: cachedImageKey,
+                    cachedImageURL: url
+                });
+            })
+
+        }
+    }
+    makeCacheKey (selection)
+    {
+        return selection.map (s => s.name).join(":");
     }
 }

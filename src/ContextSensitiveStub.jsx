@@ -7,6 +7,9 @@ export default class ContextSensitiveStub extends React.Component
     {
         super(props);
 
+        this.setElement = this.setElement.bind(this);
+        this.domTreeMutated = this.domTreeMutated.bind(this);
+
         this.latestSenseResults = this.emptySenseResults ();
         this.state = this.calculateState ();
         this.sensorsExecuted = false;
@@ -27,6 +30,10 @@ export default class ContextSensitiveStub extends React.Component
     }
     componentDidMount ()
     {
+        if (!this.element) {
+            console.warn ("componentDidMount called but element not set; missing ref attribute in render?")
+            return;
+        }
         this.latestSenseResults = this.executeAllSenseOperations ();
         this.updateState ();
         this.addObservers ();
@@ -57,7 +64,7 @@ export default class ContextSensitiveStub extends React.Component
         }
 
         var MutationObserver = window.MutationObserver || window.WebKitMutationObserver || window.MozMutationObserver;
-        let node = ReactDOM.findDOMNode(this);
+        let node = this.element;
         for (let i = 0; i <= observerDepth; i ++)
             node = node && node.parentNode;
 
@@ -66,7 +73,7 @@ export default class ContextSensitiveStub extends React.Component
             return;
         }
 
-        this.observer = new MutationObserver (mutationList => this.domTreeMutated(mutationList));
+        this.observer = new MutationObserver (this.domTreeMutated);
         this.observer.observe (node, { childList: true, subtree: true });
     }
     domTreeMutated ()
@@ -120,6 +127,7 @@ export default class ContextSensitiveStub extends React.Component
             sensorNotExecuted: true
         }));
     }
+    setElement (element) { this.element = element; }
     render ()
     {
         return this.renderWithSenseResults (this.latestSenseResults);
@@ -127,7 +135,7 @@ export default class ContextSensitiveStub extends React.Component
 
     renderWithSenseResults (senseResults)
     {
-        return <div/>;
+        return <div ref={this.setElement} />;
     }
 
     executeAllSenseOperations ()
@@ -140,7 +148,7 @@ export default class ContextSensitiveStub extends React.Component
 
     executeSensor (sensor)
     {
-        let node = ReactDOM.findDOMNode(this);
+        let node = this.element;
         if (!node) {
             console.log ("Component is not mounted!");
             return null;
@@ -158,23 +166,35 @@ export default class ContextSensitiveStub extends React.Component
             container = { contains: n => true };
 
         let distance = { inLevel: 0, up: 0 };
+        if (sensor.debug) { console.log ("Starting sensor " + sensor.id + " at " + node.outerHTML); }
         while ((node = this.moveInDirection (sensor.direction, node, distance)) && container.contains(node))
         {
-            if (sensor.maxUp && distance.up > sensor.maxUp) return null;
+            if (sensor.debug) { console.log ("Sensor " + sensor.id + " " + JSON.stringify(distance) + " => " + node.outerHTML); }
+            if (sensor.maxUp && distance.up > sensor.maxUp) {
+                if (sensor.debug) { console.log ("Sensor " + sensor.id + " failed (maxUp violated)"); }
+                return null;
+            }
 
             let matches = node.matches(sensor.selector)
                                 ? [ node ]
                                 : node.querySelectorAll (sensor.selector);
+
             if (matches.length > 0)
+            {
+                if (sensor.debug) { console.log ("Sensor " + sensor.id + " found match"); }
                 return {
                     element: this.elementAtClosestEnd(matches, sensor.direction),
                     distance: distance
                 };
-
+            }
             // every movement is *always* inlevel, so can optimize the searches by checking here rather than
             // after the next movement.
-            if (sensor.maxInLevel && distance.inLevel >= sensor.maxInLevel) return null;
+            if (sensor.maxInLevel && distance.inLevel >= sensor.maxInLevel) {
+                if (sensor.debug) { console.log ("Sensor " + sensor.id + " failed (maxInLevel violated)"); }
+                return null;
+            }
         }
+        if (sensor.debug) { console.log ("Sensor " + sensor.id + " failed (left container)"); }
         return null;
     }
 
@@ -210,5 +230,10 @@ export default class ContextSensitiveStub extends React.Component
             case "start": return elementList[elementList.length - 1];
             case "end": return elementList[0];
         }
+    }
+
+    prepareRootElement (element)
+    {
+        return React.cloneElement (element, { ref: this.setElement });
     }
 }
