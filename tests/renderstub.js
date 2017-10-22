@@ -178,4 +178,26 @@ describe ("<ContextSensitiveStub/>", () => {
         expect(resultForId(globalSenseResults, "a")).toBeNull();
     });
 
+    it ("ignores neighbouring matches within the ancestor when startInAncestor specified", () => {
+        ReactTestUtils.renderIntoDocument (<div>
+            <div className="StartHere">
+                <div className="Foo" />
+                <ContextSensitiveStubSpy sensors={startingPositionSensors} />
+            </div>
+        </div>);
+        expect(resultForId(globalSenseResults, "a")).toBeNull();
+    });
+
+    it ("finds matches near to the ancestor selected by startInAncestor that would otherwise be out of range", () => {
+        ReactTestUtils.renderIntoDocument (<div>
+            <div className="Foo" />
+            <div className="StartHere">
+                <div>
+                    <ContextSensitiveStubSpy sensors={startingPositionSensors} />
+                </div>
+            </div>
+        </div>);
+        expect(resultForId(globalSenseResults, "a")).toHaveMember("distance");
+    });
+
 });

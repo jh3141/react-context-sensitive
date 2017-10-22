@@ -146,25 +146,31 @@ export default class ContextSensitiveStub extends React.Component
         }));
     }
 
-    executeSensor (sensor)
+    findContainer (node, containerSpec)
     {
-        let node = this.element;
-        if (!node) {
-            console.log ("Component is not mounted!");
-            return null;
-        }
-        if (!node.parentNode) {
-            console.log ("Component element is not parented!");
-            return null;
-        }
-        let container = sensor.inContainer ?
-                            (sensor.inContainer instanceof Element ? sensor.inContainer :
-                                                                     node.parentNode.closest (sensor.inContainer)) :
-                            node.ownerDocument.body;
+        let container = containerSpec
+                            ? (containerSpec instanceof Element
+                                    ? containerSpec
+                                    : node.parentNode.closest (containerSpec))
+                            : node.ownerDocument.body;
 
         if (!container.contains(node)) // node is probably not attached to a document, so default doesn't apply
             container = { contains: n => true };
+        return container;
+    }
 
+    executeSensor (sensor)
+    {
+        let node = this.element;
+        if (!node||!node.parentNode) {
+            return null;    // we'll re-reun later, so this isn't an important problem.
+        }
+
+        let container = this.findContainer (node, sensor.inContainer);
+        if (sensor.startInAncestor) {
+            node = node.parentNode.closest(sensor.startInAncestor);
+            if (!node || !container.contains(node)) return null;
+        }
         let distance = { inLevel: 0, up: 0 };
         if (sensor.debug) { console.log ("Starting sensor " + sensor.id + " at " + node.outerHTML); }
         while ((node = this.moveInDirection (sensor.direction, node, distance)) && container.contains(node))
