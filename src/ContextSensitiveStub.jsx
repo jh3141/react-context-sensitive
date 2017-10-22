@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
+import FastSet from 'collections/fast-set';
 
 export default class ContextSensitiveStub extends React.Component
 {
@@ -42,13 +43,18 @@ export default class ContextSensitiveStub extends React.Component
     {
         this.latestSenseResults = this.emptySenseResults ();
         this.updateState ();
+        if (this.observer)
+        {
+            this.observer.disconnect();
+            this.observer = null;
+        }
     }
     safeDepthByLimits ()
     {
         let observerDepth = 1;
         for (let sensor of this.props.sensors)
-            if (sensor.maxUp) {
-                if (sensor.maxUp > observerDepth) observerDepth = sensor.maxUp + 1;
+            if (sensor.maxUp !== undefined) {
+                if (sensor.maxUp >= observerDepth) observerDepth = sensor.maxUp + 1;
             }
             else {  // FIXME can use container specifications for sensors that don't have a max depth
                 return undefined;
@@ -65,7 +71,7 @@ export default class ContextSensitiveStub extends React.Component
 
         var MutationObserver = window.MutationObserver || window.WebKitMutationObserver || window.MozMutationObserver;
         let node = this.element;
-        for (let i = 0; i <= observerDepth; i ++)
+        for (let i = 0; i < observerDepth; i ++)
             node = node && node.parentNode;
 
         if (!node) {
@@ -76,9 +82,29 @@ export default class ContextSensitiveStub extends React.Component
         this.observer = new MutationObserver (this.domTreeMutated);
         this.observer.observe (node, { childList: true, subtree: true });
     }
-    domTreeMutated ()
+    domTreeMutated (changes)
     {
-        console.log ("Detected DOM mutations within range; rerunning sensors");
+        if (!this.element) return;
+        // we're only interested in changes that could possibly effect our results.
+        let changedSelectors = new FastSet();
+        for (let change of changes)
+        {
+            if (this.element == change.target || this.element.contains(change.target)) // self changes are never interesting
+                continue;
+            this.trackingDescriptors.forEach(descr => {
+                for (let a of change.addedNodes)
+                    if (a.matches(descr) || a.querySelector(descr))
+                        changedSelectors.add(descr);
+                for (let a of change.removedNodes)
+                    if (a.matches(descr) || a.querySelector(descr))
+                    changedSelectors.add(descr);
+            });
+        }
+        if (changedSelectors.length == 0) {
+            console.log ("Ignoring DOM mutations that do not involve any tracked selectors");
+            return;
+        }
+        console.log ("Detected DOM mutations affecting " + changedSelectors.toArray().join(", ") + " within range; rerunning sensors");
         this.latestSenseResults = this.executeAllSenseOperations ();
         this.updateState ();
     }
@@ -140,6 +166,11 @@ export default class ContextSensitiveStub extends React.Component
 
     executeAllSenseOperations ()
     {
+        if (this.trackingDescriptors)
+            this.trackingDescriptors.clear ();
+        else
+            this.trackingDescriptors = new FastSet ();
+
         return this.props.sensors.map (sensor => ({
             id: sensor.id,
             descriptor: this.executeSensor (sensor)
@@ -161,6 +192,8 @@ export default class ContextSensitiveStub extends React.Component
 
     executeSensor (sensor)
     {
+        this.trackingDescriptors.add(sensor.selector);
+
         let node = this.element;
         if (!node||!node.parentNode) {
             return null;    // we'll re-reun later, so this isn't an important problem.
@@ -176,7 +209,7 @@ export default class ContextSensitiveStub extends React.Component
         while ((node = this.moveInDirection (sensor.direction, node, distance)) && container.contains(node))
         {
             if (sensor.debug) { console.log ("Sensor " + sensor.id + " " + JSON.stringify(distance) + " => " + node.outerHTML); }
-            if (sensor.maxUp && distance.up > sensor.maxUp) {
+            if (sensor.maxUp !== undefined && distance.up > sensor.maxUp) {
                 if (sensor.debug) { console.log ("Sensor " + sensor.id + " failed (maxUp violated)"); }
                 return null;
             }

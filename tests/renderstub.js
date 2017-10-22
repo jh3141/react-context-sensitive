@@ -154,21 +154,45 @@ describe ("<ContextSensitiveStub/>", () => {
                 <ChangingMiddle ref={c => container = c} nestDepth={5}
                             atStart={<ContextSensitiveStubSpy key="s" sensors={defaultSensors} />}
                             middle={[]}
-                            atEnd={<div key="e" className="Foo" />} />,
+                            atEnd={<div key="e" />} />,
                 div);
 
-        expect(resultForId(globalSenseResults, "b").distance.inLevel).toBe(1);
-        container.changeMiddle([<div key="1" />]);
+        expect(resultForId(globalSenseResults, "b")).toBeNull();
+        container.changeMiddle([<div key="1" className="Foo" />]);
 
         waitsForAndRuns (
-            () => resultForId(globalSenseResults, "b").distance.inLevel != 1,
+            () => resultForId(globalSenseResults, "b"),
             () => {
-                expect(resultForId(globalSenseResults, "b").distance.inLevel).toBe(2);
+                expect(resultForId(globalSenseResults, "b").distance.inLevel).toBe(1);
                 ReactDOM.unmountComponentAtNode(div);
             },
             2000,
             done);
     });
+    it ("ignores changes to the dom that do not involve tracked selectors", (done) => {
+        let container = null
+        let div = document.createElement("div");
+        document.body.appendChild(div);
+        ReactDOM.render(
+                <ChangingMiddle ref={c => container = c} nestDepth={5}
+                            atStart={<ContextSensitiveStubSpy key="s" sensors={defaultSensors} />}
+                            middle={[<div key="1" />]}
+                            atEnd={<div key="e" className="Foo" />} />,
+                div);
+
+        expect(resultForId(globalSenseResults, "b").distance.inLevel).toBe(2);
+        container.changeMiddle([]);
+
+        waitsForAndRuns (
+            () => resultForId(globalSenseResults, "b").distance.inLevel != 2,
+            () => {
+                expect(resultForId(globalSenseResults, "b").distance.inLevel).toBe(2);
+                ReactDOM.unmountComponentAtNode(div);
+            },
+            250,
+            done);
+    });
+
 
     it ("fails if startInAncestor is specified but no ancestor matches", () => {
         ReactTestUtils.renderIntoDocument (<div>

@@ -37,6 +37,7 @@
     "webpack-dev-server": "^2.9.1"
   },
   "dependencies": {
+    "collections": "^2.0.3",
     "lru_map": "^0.3.3",
     "react": "^16.0.0",
     "react-dom": "^16.0.0"
