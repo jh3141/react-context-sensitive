@@ -97,6 +97,16 @@ export default class ContextSensitiveRenderer extends ContextSensitiveStub
 
         if (this.props.renderedImageCache) {
             this.canvas.toBlob (blob => {
+                // another script may have rendered the same item while we were generating the blob; use that if it did...
+                cachedBlob = this.props.renderedImageCache.get(cachedImageKey);
+                if (cachedBlob) {
+                    this.setState ({
+                        cachedImageKey: cachedImageKey,
+                        cachedImageURL: cachedBlob.url
+                    });
+                    return; // will trigger a rerender to use the cached version                    
+                }
+
                 let url = URL.createObjectURL(blob);
 
                 this.props.renderedImageCache.set (cachedImageKey, {
